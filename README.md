@@ -6,8 +6,12 @@
 
 Для начала работы с плагином выполните следующие шаги:
 
-1. Добавьте следующий код в файл `build.gradle` на уровне проекта:
+1. Вставьте следующий код в раздел `allprojects/repositories` вашего файла `build.gradle` на уровне проекта:
 
+```groovy
+maven { 
+    url 'https://www.jitpack.io' 
+}```
 ```groovy
 allprojects {
     repositories {
@@ -17,4 +21,4 @@ allprojects {
             url 'https://www.jitpack.io' 
         }
     }
-}
+}```
