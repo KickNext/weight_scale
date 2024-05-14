@@ -11,7 +11,8 @@
 ```groovy
 maven { 
     url 'https://www.jitpack.io' 
-}```
+}
+```
 ```groovy
 allprojects {
     repositories {
