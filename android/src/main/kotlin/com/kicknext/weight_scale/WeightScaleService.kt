@@ -1,11 +1,4 @@
-package com.kicknext.weight_scale
-
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.hardware.usb.UsbDevice
-import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 import android.os.Handler
 import android.os.Looper
@@ -13,18 +6,21 @@ import android.util.Log
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
+import com.hoho.android.usbserial.util.SerialInputOutputManager
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.IOException
+import java.util.concurrent.Executors
 import java.util.HashMap
 
-class UsbSerialService(private val context: Context) {
-    private val TAG = "UsbSerialService"
-    private val ACTION_USB_PERMISSION = "com.kicknext.USB_PERMISSION"
+class WeightScaleService(private val context: Context) : SerialInputOutputManager.Listener {
+    private val TAG = "WeightScaleService"
     private val usbManager: UsbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    private var device: UsbDevice? = null
     private var port: UsbSerialPort? = null
-    private var readThread: ReadThread? = null
+    private var usbIoManager: SerialInputOutputManager? = null
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var eventSink: EventChannel.EventSink? = null
+    private val buffer = mutableListOf<Byte>()  // Буфер для накопления данных
 
     fun getDevices(result: MethodChannel.Result) {
         val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
@@ -52,7 +48,7 @@ class UsbSerialService(private val context: Context) {
         }
 
         if (driver == null) {
-            result.error("NO_weight_scale_DEVICE", "No matching serial device found", null)
+            result.error("NO_WEIGHT_SCALE_DEVICE", "No matching serial device found", null)
             return
         }
 
@@ -67,47 +63,91 @@ class UsbSerialService(private val context: Context) {
             port?.open(connection)
             port?.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
 
-            // Запуск потока для чтения данных
-            readThread = ReadThread(port!!)
-            readThread!!.start()
+            usbIoManager = SerialInputOutputManager(port, this)
+            Executors.newSingleThreadExecutor().submit(usbIoManager)
 
+            result.success("Connected to weight scale")
         } catch (e: IOException) {
             e.printStackTrace()
+            result.error("CONNECTION_FAILED", "Failed to connect", e.message)
         }
     }
 
     fun disconnect(result: MethodChannel.Result) {
-        closePort()
+        try {
+            usbIoManager?.stop()
+            closePort()
+            result.success("Disconnected and stopped reading")
+        } catch (e: IOException) {
+            result.error("DISCONNECTION_FAILED", "Failed to disconnect", e.message)
+        }
     }
 
-    fun closePort(){
+    fun closePort() {
         port?.close()
-        readThread?.interrupt()
+        port = null
     }
 
-    private inner class ReadThread(private val port: UsbSerialPort) : Thread() {
-        override fun run() {
-            val buffer = ByteArray(16)
+    fun setEventSink(eventSink: EventChannel.EventSink?) {
+        this.eventSink = eventSink
+    }
 
-            while (!isInterrupted) {
-                try {
-                    val numBytesRead = port.read(buffer, 1000)
-                    if (numBytesRead > 0) {
-                        val receivedData = String(buffer, 0, numBytesRead)
-                        Log.d(TAG, "Read $numBytesRead bytes: $receivedData")
+    override fun onNewData(data: ByteArray) {
+        Log.d(TAG, "Received data (length: ${data.size}):")
 
-                        // Отправка данных в основной поток для обработки
-                        mainHandler.post { processData(receivedData) }
-                    }
-                } catch (e: IOException) {
-                    e.printStackTrace()
+        // Логируем каждый байт
+        data.forEach { byte ->
+            Log.d(TAG, "Byte received: ${byte.toInt() and 0xFF} (${byte.toChar()})")
+        }
+
+        // Накопление данных
+        buffer.addAll(data.toList())
+
+        // Проверка накопленных данных на наличие полного пакета
+        processBuffer()
+    }
+
+    override fun onRunError(e: Exception) {
+        if (e.message?.contains("Connection closed") == true) {
+            Log.i(TAG, "Connection closed normally")
+        } else {
+            Log.e(TAG, "Runner stopped due to an error", e)
+        }
+    }
+
+    private fun processBuffer() {
+        while (buffer.size >= 16) {  // Проверка на наличие достаточного количества данных для пакета
+            val startIdx = buffer.indexOf(0x01.toByte())
+            if (startIdx == -1) {
+                buffer.clear()  // Очищаем буфер, если начало пакета не найдено
+                break
+            }
+
+            val endIdx = startIdx + 15  // Позиция последнего символа в 16-байтовом пакете
+            if (endIdx >= buffer.size) {
+                break  // Выход из цикла, если конец пакета не найден
+            }
+
+            val dataPacket = buffer.subList(startIdx, endIdx + 1).toByteArray()
+            Log.d(TAG, "Data packet candidate: ${dataPacket.joinToString()} (length: ${dataPacket.size})")
+
+            if (dataPacket.size == 16 && dataPacket[0] == 0x01.toByte() && dataPacket[1] == 0x02.toByte()) {
+                buffer.subList(0, endIdx + 1).clear()
+
+                mainHandler.post {
+                    processData(dataPacket)
+                    eventSink?.success(dataPacket)
                 }
+            } else {
+                Log.e(TAG, "Invalid data packet received: ${dataPacket.joinToString()} (length: ${dataPacket.size})")
+                buffer.removeAt(0)
             }
         }
     }
 
-    private fun processData(data: String) {
-        // Обработка полученных данных
-        Log.d(TAG, "Processed Data: $data")
+    private fun processData(data: ByteArray) {
+        Log.d(TAG, "Processed Data: ${data.joinToString()}")
     }
 }
+
+

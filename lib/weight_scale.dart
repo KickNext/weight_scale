@@ -1,50 +1,62 @@
-import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:weight_scale/protocol.dart';
 
 class WeightScale {
-  static const MethodChannel _channel = MethodChannel('com.kicknext.weight_scale/serial');
+  static const MethodChannel _methodChannel = MethodChannel('com.kicknext.weight_scale');
+  static const EventChannel _eventChannel = EventChannel('com.kicknext.weight_scale/events');
 
-  /// Получение списка подключенных USB-устройств
-  static Future<Map<String, String>> getDevices() async {
-    final Map<dynamic, dynamic> result = await _channel.invokeMethod('getDevices');
-    return Map<String, String>.from(result);
+  // Singleton pattern
+  static final WeightScale _instance = WeightScale._internal();
+  factory WeightScale() => _instance;
+  WeightScale._internal();
+
+  // Stream for receiving data
+  Stream<ScaleData>? _dataStream;
+
+  // Get list of connected devices
+  Future<Map<String, String>> getDevices() async {
+    try {
+      final devices = await _methodChannel.invokeMethod<Map>('getDevices');
+      return devices?.cast<String, String>() ?? {};
+    } on PlatformException catch (e) {
+      print("Failed to get devices: '${e.message}'.");
+      return {};
+    }
   }
 
-  /// Подключение к указанному устройству по его ID
-  static Future<void> connect(String deviceId) async {
+  // Connect to a device by its ID
+  Future<void> connect(String deviceId) async {
     try {
-      await _channel.invokeMethod('connect', {'deviceId': deviceId});
+      await _methodChannel.invokeMethod('connect', {"deviceId": deviceId});
     } on PlatformException catch (e) {
       print("Failed to connect: '${e.message}'.");
     }
   }
 
-  /// Отключение от устройства
-  static Future<void> disconnect() async {
+  // Disconnect from the device
+  Future<void> disconnect() async {
     try {
-      await _channel.invokeMethod('disconnect');
+      await _methodChannel.invokeMethod('disconnect');
     } on PlatformException catch (e) {
       print("Failed to disconnect: '${e.message}'.");
     }
   }
 
-  /// Запись данных в устройство
-  static Future<void> write(String data) async {
-    try {
-      await _channel.invokeMethod('write', {'data': data});
-    } on PlatformException catch (e) {
-      print("Failed to write: '${e.message}'.");
-    }
-  }
-
-  /// Чтение данных из устройства
-  static Future<String> read() async {
-    try {
-      final String result = await _channel.invokeMethod('read');
-      return result;
-    } on PlatformException catch (e) {
-      print("Failed to read: '${e.message}'.");
-      return '';
-    }
+  // Get a stream of data from the device
+  Stream<ScaleData> get dataStream {
+    _dataStream ??= _eventChannel.receiveBroadcastStream().map((event) {
+      if (event is Uint8List) {
+        try {
+          return ScaleProtocol.parseData(event);
+        } catch (e) {
+          print("Failed to parse data: $e");
+          return null;
+        }
+      } else {
+        print("Received unknown data format");
+        return null;
+      }
+    }).where((event) => event != null).cast<ScaleData>();
+    return _dataStream!;
   }
 }
