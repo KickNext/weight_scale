@@ -105,7 +105,7 @@ class WeightScaleManager {
         return null;
       }
     } else {
-      _handleError(FormatException("Received unknown data format"), StackTrace.current, '_parseEvent');
+      _handleError(const FormatException("Received unknown data format"), StackTrace.current, '_parseEvent');
       return null;
     }
   }
