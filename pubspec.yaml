@@ -1,6 +1,6 @@
 name: weight_scale
-description: "A new Flutter plugin project."
-version: 0.0.1
+description: "Flutter plugin for Android to interface with commercial scales via RS232 using the AUTO COMMUNICATE PROTOCOL."
+version: 0.1.0+2024052301
 # homepage:
 
 environment:
@@ -15,6 +15,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  mockito: 
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

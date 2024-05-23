@@ -1,5 +1,3 @@
-// ignore_for_file: constant_identifier_names
-
 import 'dart:typed_data';
 
 class ScaleProtocol {
@@ -15,12 +13,11 @@ class ScaleProtocol {
     if (data.length < 16) {
       throw ArgumentError('Insufficient data received: ${data.length} bytes');
     }
-    print(String.fromCharCodes(data));
 
     int soh = data[0];
     int stx = data[1];
     int statusByte = data[2];
-    String sign = String.fromCharCode(data[3]);
+    int signByte = data[3];
     String weight = String.fromCharCodes(data.sublist(4, 10));
     String weightUnits = String.fromCharCodes(data.sublist(10, 12));
     int bcc = data[12];
@@ -28,23 +25,51 @@ class ScaleProtocol {
     int eot = data[14];
     int statusByte2 = data[15];
 
-    // Calculate BCC
+    _validateHeaders(soh, stx, etx, eot);
+    _validateSignByte(signByte);
+    _validateWeightUnits(weightUnits);
+    _validateBcc(data, bcc);
+
+    Status status = Status.fromByte(statusByte);
+    Status2 status2 = Status2.fromByte(statusByte2);
+
+    bool isPositive = signByte != 0x2D; // If sign byte is not '-', it's positive
+    if (!isPositive) {
+      // If sign byte is '-'
+      weight = '-$weight';
+    }
+
+    return ScaleData(
+      status: status,
+      weight: weight,
+      weightUnits: weightUnits,
+      status2: status2,
+      isPositive: isPositive,
+    );
+  }
+
+  static void _validateHeaders(int soh, int stx, int etx, int eot) {
+    if (soh != SOH || stx != STX || etx != ETX || eot != EOT) {
+      throw const FormatException('Invalid headers in data received');
+    }
+  }
+
+  static void _validateSignByte(int signByte) {
+    if (signByte != 0x2D && signByte != 0x20) {
+      throw const FormatException('Invalid sign character received');
+    }
+  }
+
+  static void _validateWeightUnits(String weightUnits) {
+    if (weightUnits.length != 2) {
+      throw const FormatException('Invalid weight units received');
+    }
+  }
+
+  static void _validateBcc(Uint8List data, int receivedBcc) {
     int calculatedBcc = calculateBcc(data.sublist(0, 12));
-
-    if (soh == SOH && stx == STX && etx == ETX && eot == EOT && bcc == calculatedBcc) {
-      Status status = Status.fromByte(statusByte);
-
-      Status2 status2 = Status2.fromByte(statusByte2);
-
-      return ScaleData(
-        status: status,
-        sign: sign,
-        weight: weight,
-        weightUnits: weightUnits,
-        status2: status2,
-      );
-    } else {
-      throw const FormatException('Invalid data received');
+    if (receivedBcc != calculatedBcc) {
+      throw const FormatException('BCC mismatch in data received');
     }
   }
 
@@ -60,24 +85,25 @@ class ScaleProtocol {
 
 class ScaleData {
   final Status status;
-  final String sign;
   final String weight;
   final String weightUnits;
   final Status2 status2;
+  final bool isPositive;
 
   ScaleData({
     required this.status,
-    required this.sign,
     required this.weight,
     required this.weightUnits,
     required this.status2,
+    required this.isPositive,
   });
 
   @override
   String toString() {
     return 'Status: ${status.toString().split('.').last}, '
-        'Weight: $sign$weight $weightUnits, '
-        'Status2: ${status2.toString().split('.').last}';
+        'Weight: $weight $weightUnits, '
+        'Status2: ${status2.toString().split('.').last}, '
+        'Is Positive: $isPositive';
   }
 }
 
