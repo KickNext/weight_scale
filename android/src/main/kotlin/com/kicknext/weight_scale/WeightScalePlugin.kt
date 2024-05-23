@@ -1,6 +1,5 @@
 package com.kicknext.weight_scale
 
-import WeightScaleService
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -10,7 +9,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 class WeightScalePlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
   private lateinit var methodChannel: MethodChannel
   private lateinit var eventChannel: EventChannel
-  private var weightScaleSerialService: WeightScaleService? = null
+  private var weightScaleService: WeightScaleService? = null
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "com.kicknext.weight_scale")
@@ -19,36 +18,48 @@ class WeightScalePlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamH
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "com.kicknext.weight_scale/events")
     eventChannel.setStreamHandler(this)
 
-    weightScaleSerialService = WeightScaleService(flutterPluginBinding.applicationContext)
+    weightScaleService = WeightScaleService(flutterPluginBinding.applicationContext)
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     methodChannel.setMethodCallHandler(null)
     eventChannel.setStreamHandler(null)
-    weightScaleSerialService?.closePort()
+    weightScaleService?.closePort()
   }
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
-      "getDevices" -> weightScaleSerialService?.getDevices(result)
+      "getDevices" -> {
+        Logger.d("Method call: getDevices")
+        weightScaleService?.getDevices(result)
+      }
       "connect" -> {
         val deviceId = call.argument<String>("deviceId")
         if (deviceId != null) {
-          weightScaleSerialService?.connect(deviceId, result)
+          Logger.d("Method call: connect with deviceId $deviceId")
+          weightScaleService?.connect(deviceId, result)
         } else {
           result.error("INVALID_ARGUMENT", "Device ID is required", null)
         }
       }
-      "disconnect" -> weightScaleSerialService?.disconnect(result)
-      else -> result.notImplemented()
+      "disconnect" -> {
+        Logger.d("Method call: disconnect")
+        weightScaleService?.disconnect(result)
+      }
+      else -> {
+        Logger.d("Method call: notImplemented - ${call.method}")
+        result.notImplemented()
+      }
     }
   }
 
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-    weightScaleSerialService?.setEventSink(events)
+    Logger.d("EventChannel: onListen")
+    weightScaleService?.setEventSink(events)
   }
 
   override fun onCancel(arguments: Any?) {
-    weightScaleSerialService?.setEventSink(null)
+    Logger.d("EventChannel: onCancel")
+    weightScaleService?.setEventSink(null)
   }
 }
