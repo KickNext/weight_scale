@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:weight_scale/protocol.dart';
 import 'package:weight_scale/weight_scale_manager.dart';

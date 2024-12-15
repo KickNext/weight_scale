@@ -2,8 +2,10 @@ package com.kicknext.weight_scale
 
 import android.content.Context
 import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import com.hoho.android.usbserial.driver.UsbSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
@@ -22,6 +24,7 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
     private var eventSink: EventChannel.EventSink? = null
     private val buffer = mutableListOf<Byte>()
 
+    @RequiresApi(Build.VERSION_CODES.HONEYCOMB_MR1)
     fun getDevices(result: MethodChannel.Result) {
         val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
         val devices = HashMap<String, String>()
@@ -32,7 +35,6 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
             val productId = device.productId.toString()
             devices[deviceName] = "$vendorId:$productId"
         }
-        Logger.d("getDevices: $devices")
         result.success(devices)
     }
 
@@ -55,7 +57,6 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
 
         val connection = usbManager.openDevice(driver.device)
         if (connection == null) {
-            Logger.d("Permission not granted for USB device.")
             result.error("PERMISSION_DENIED", "Permission not granted for USB device", null)
             return
         }
@@ -68,10 +69,8 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
             usbIoManager = SerialInputOutputManager(port, this)
             Executors.newSingleThreadExecutor().submit(usbIoManager)
 
-            Logger.d("Connected to weight scale")
             result.success("Connected to weight scale")
         } catch (e: IOException) {
-            Logger.e("Failed to connect to the weight scale", e)
             result.error("CONNECTION_FAILED", "Failed to connect", e.message)
         }
     }
@@ -80,10 +79,8 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
         try {
             usbIoManager?.stop()
             closePort()
-            Logger.d("Disconnected and stopped reading")
             result.success("Disconnected and stopped reading")
         } catch (e: IOException) {
-            Logger.e("Failed to disconnect from the weight scale", e)
             result.error("DISCONNECTION_FAILED", "Failed to disconnect", e.message)
         }
     }
@@ -98,7 +95,6 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
     }
 
     override fun onNewData(data: ByteArray) {
-        Logger.d("Received data (length: ${data.size}): ${data.joinToString { byte -> "%02X".format(byte) }}")
 
         buffer.addAll(data.toList())
 
@@ -107,9 +103,7 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
 
     override fun onRunError(e: Exception) {
         if (e.message?.contains("Connection closed") == true) {
-            Logger.i("Connection closed normally")
         } else {
-            Logger.e("Runner stopped due to an error", e)
         }
     }
 
@@ -127,8 +121,6 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
             }
 
             val dataPacket = buffer.subList(startIdx, endIdx + 1).toByteArray()
-            Logger.d("Data packet candidate: ${dataPacket.joinToString { byte -> "%02X".format(byte) }} (length: ${dataPacket.size})")
-
             if (dataPacket.size == 16 && dataPacket[0] == 0x01.toByte() && dataPacket[1] == 0x02.toByte()) {
                 buffer.subList(0, endIdx + 1).clear()
 
@@ -137,13 +129,11 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
                     eventSink?.success(dataPacket)
                 }
             } else {
-                Logger.e("Invalid data packet received: ${dataPacket.joinToString { byte -> "%02X".format(byte) }} (length: ${dataPacket.size})")
                 buffer.removeAt(0)
             }
         }
     }
 
     private fun processData(data: ByteArray) {
-        Logger.d("Processed Data: ${data.joinToString { byte -> "%02X".format(byte) }}")
     }
 }

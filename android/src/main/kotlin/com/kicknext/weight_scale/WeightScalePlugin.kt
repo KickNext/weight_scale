@@ -30,36 +30,30 @@ class WeightScalePlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamH
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
       "getDevices" -> {
-        Logger.d("Method call: getDevices")
         weightScaleService?.getDevices(result)
       }
       "connect" -> {
         val deviceId = call.argument<String>("deviceId")
         if (deviceId != null) {
-          Logger.d("Method call: connect with deviceId $deviceId")
-          weightScaleService?.connect(deviceId, result)
+         weightScaleService?.connect(deviceId, result)
         } else {
           result.error("INVALID_ARGUMENT", "Device ID is required", null)
         }
       }
       "disconnect" -> {
-        Logger.d("Method call: disconnect")
         weightScaleService?.disconnect(result)
       }
       else -> {
-        Logger.d("Method call: notImplemented - ${call.method}")
         result.notImplemented()
       }
     }
   }
 
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-    Logger.d("EventChannel: onListen")
     weightScaleService?.setEventSink(events)
   }
 
   override fun onCancel(arguments: Any?) {
-    Logger.d("EventChannel: onCancel")
     weightScaleService?.setEventSink(null)
   }
 }
