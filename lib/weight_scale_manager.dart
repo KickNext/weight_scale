@@ -127,7 +127,7 @@ class WeightScaleManager {
     await connect(device);
 
     // Listen for data and complete the future if data is received
-    final subscription = dataStream!.listen((data) {
+    final subscription = dataStream?.listen((data) {
       if (!completer.isCompleted) {
         completer.complete(true);
       }
@@ -138,7 +138,7 @@ class WeightScaleManager {
       if (!completer.isCompleted) {
         completer.complete(false);
       }
-      await subscription.cancel();
+      await subscription?.cancel();
       await disconnect();
     });
 
