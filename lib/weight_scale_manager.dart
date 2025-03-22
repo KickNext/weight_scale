@@ -5,8 +5,10 @@ import 'package:weight_scale/protocol.dart';
 import 'package:weight_scale/weight_scale_device.dart';
 
 class WeightScaleManager {
-  static const MethodChannel _methodChannel = MethodChannel('com.kicknext.weight_scale');
-  static const EventChannel _eventChannel = EventChannel('com.kicknext.weight_scale/events');
+  static const MethodChannel _methodChannel =
+      MethodChannel('com.kicknext.weight_scale');
+  static const EventChannel _eventChannel =
+      EventChannel('com.kicknext.weight_scale/events');
 
   static final WeightScaleManager _instance = WeightScaleManager._internal();
   factory WeightScaleManager() => _instance;
@@ -22,7 +24,8 @@ class WeightScaleManager {
   // Get list of connected devices
   Future<List<WeightScaleDevice>> getDevices() async {
     try {
-      final devices = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>('getDevices');
+      final devices = await _methodChannel
+          .invokeMethod<Map<dynamic, dynamic>>('getDevices');
       if (devices == null) return [];
 
       List<WeightScaleDevice> deviceList = devices.entries.map((entry) {
@@ -41,7 +44,8 @@ class WeightScaleManager {
     }
   }
 
-  Future<List<WeightScaleDevice>> _filterValidDevices(List<WeightScaleDevice> devices) async {
+  Future<List<WeightScaleDevice>> _filterValidDevices(
+      List<WeightScaleDevice> devices) async {
     List<WeightScaleDevice> validDevices = [];
     for (var device in devices) {
       if (await _checkDevice(device)) {
@@ -54,7 +58,11 @@ class WeightScaleManager {
   // Connect to a device
   Future<void> connect(WeightScaleDevice device) async {
     try {
-      await _methodChannel.invokeMethod('connect', {"deviceId": device.deviceName});
+      await _methodChannel.invokeMethod('connect', {
+        "deviceName": device.deviceName,
+        "vendorID": device.vendorID,
+        "productID": device.productID,
+      });
       device.isConnected = true;
       _connectedDevice = device;
 
@@ -84,8 +92,11 @@ class WeightScaleManager {
 
   // Initialize data stream
   void _initializeDataStream() {
-    _dataStream =
-        _eventChannel.receiveBroadcastStream().map(_parseEvent).where((event) => event != null).cast<ScaleData>();
+    _dataStream = _eventChannel
+        .receiveBroadcastStream()
+        .map(_parseEvent)
+        .where((event) => event != null)
+        .cast<ScaleData>();
 
     // Subscribe to the data stream
     _dataSubscription = _dataStream!.listen((data) {
@@ -105,7 +116,8 @@ class WeightScaleManager {
         return null;
       }
     } else {
-      _handleError(const FormatException("Received unknown data format"), StackTrace.current, '_parseEvent');
+      _handleError(const FormatException("Received unknown data format"),
+          StackTrace.current, '_parseEvent');
       return null;
     }
   }
@@ -147,7 +159,8 @@ class WeightScaleManager {
 
   // Handle errors
   void _handleError(Object error, StackTrace stackTrace, String context) {
-    _debugPrint('WeightScaleManager: Error in $context: $error\nStack trace: $stackTrace');
+    _debugPrint(
+        'WeightScaleManager: Error in $context: $error\nStack trace: $stackTrace');
     onErrorCallback?.call(error, stackTrace);
   }
 

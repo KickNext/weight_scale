@@ -38,13 +38,16 @@ class WeightScaleService(private val context: Context) : SerialInputOutputManage
         result.success(devices)
     }
 
-    fun connect(deviceId: String, result: MethodChannel.Result) {
+    fun connect(deviceName: String, vendorID: String, productID: String, result: MethodChannel.Result) {
         val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
         var driver: UsbSerialDriver? = null
 
         for (availableDriver in availableDrivers) {
             val device = availableDriver.device
-            if (device.deviceName == deviceId) {
+            if (device.deviceName == deviceName &&
+                device.vendorId.toString() == vendorID &&
+                device.productId.toString() == productID
+            ) {
                 driver = availableDriver
                 break
             }

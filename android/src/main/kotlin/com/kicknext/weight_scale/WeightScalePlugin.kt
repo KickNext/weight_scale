@@ -33,11 +33,13 @@ class WeightScalePlugin : FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         weightScaleService?.getDevices(result)
       }
       "connect" -> {
-        val deviceId = call.argument<String>("deviceId")
-        if (deviceId != null) {
-         weightScaleService?.connect(deviceId, result)
+        val deviceName = call.argument<String>("deviceName")
+        val vendorID = call.argument<String>("vendorID")
+        val productID = call.argument<String>("productID")
+        if (deviceName != null && vendorID != null && productID != null) {
+          weightScaleService?.connect(deviceName, vendorID, productID, result)
         } else {
-          result.error("INVALID_ARGUMENT", "Device ID is required", null)
+          result.error("INVALID_ARGUMENT", "deviceName, vendorID and productID are required", null)
         }
       }
       "disconnect" -> {
