@@ -2,14 +2,12 @@ class WeightScaleDevice {
   final String deviceName;
   final String vendorID;
   final String productID;
-  final String name;
   bool isConnected;
 
   WeightScaleDevice({
     required this.deviceName,
     required this.vendorID,
     required this.productID,
-    required this.name,
     this.isConnected = false,
   });
 
@@ -18,7 +16,6 @@ class WeightScaleDevice {
       'deviceName': deviceName,
       'vendorID': vendorID,
       'productID': productID,
-      'name': name,
     };
   }
 
@@ -27,13 +24,12 @@ class WeightScaleDevice {
       deviceName: json['deviceName'],
       vendorID: json['vendorID'],
       productID: json['productID'],
-      name: json['name'],
     );
   }
 
   @override
   String toString() {
-    return 'WeightScaleDevice(deviceName: $deviceName, vendorID: $vendorID, productID: $productID, isConnected: $isConnected, name: $name)';
+    return 'WeightScaleDevice(deviceName: $deviceName, vendorID: $vendorID, productID: $productID, isConnected: $isConnected)';
   }
 
   static List<WeightScaleDevice> listFromJson(List<dynamic> jsonList) {
