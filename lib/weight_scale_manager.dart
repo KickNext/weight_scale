@@ -19,7 +19,7 @@ class WeightScaleManager {
   static const List<Map<String, String>> _knownScaleIDs = [
     {
       'vendorID': '6790', // Aclas VID (Decimal String from 0x1a86)
-      'productID': '21795', // Aclas PID (Decimal String from ACTUAL LOGS 0x551f - CORRECTED YET AGAIN)
+      'productID': '29987', // Aclas PID (Decimal String from ACTUAL LOGS 0x551f - CORRECTED YET AGAIN)
       'name': 'Aclas',
     },
     // Возвращаем запись для весов "No Name"
