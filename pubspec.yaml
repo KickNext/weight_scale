@@ -1,6 +1,6 @@
 name: weight_scale
 description: "Flutter plugin for Android to interface with commercial scales via RS232 using the AUTO COMMUNICATE PROTOCOL."
-version: 0.2.2+2025032201
+version: 0.3.1+2025040801
 # homepage:
 
 environment:

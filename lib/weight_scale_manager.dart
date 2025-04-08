@@ -14,6 +14,17 @@ class WeightScaleManager {
   factory WeightScaleManager() => _instance;
   WeightScaleManager._internal();
 
+  // Список известных VID/PID весов
+  static const List<Map<String, String>> _knownScaleIDs = [
+    {
+      'vendorID': '0x1a86', // Aclas VID
+      'productID': '0x7523', // Aclas PID
+      'name': 'Aclas',
+    },
+    // Сюда можно добавить другие модели весов
+    // {'vendorID': 'VID_ДРУГОЙ', 'productID': 'PID_ДРУГОЙ', 'name': 'Другая Модель'},
+  ];
+
   WeightScaleDevice? _connectedDevice;
   Stream<ScaleData>? _dataStream;
   StreamSubscription<ScaleData>? _dataSubscription;
@@ -47,11 +58,30 @@ class WeightScaleManager {
   Future<List<WeightScaleDevice>> _filterValidDevices(
       List<WeightScaleDevice> devices) async {
     List<WeightScaleDevice> validDevices = [];
+    _debugPrint('WeightScaleManager: Starting device filtering. Total devices found: ${devices.length}');
+
     for (var device in devices) {
-      if (await _checkDevice(device)) {
-        validDevices.add(device);
+      _debugPrint('WeightScaleManager: Checking device: ${device.deviceName} (VID: ${device.vendorID}, PID: ${device.productID})');
+
+      // Проверяем, есть ли VID/PID устройства в нашем списке известных весов
+      bool isKnownScale = _knownScaleIDs.any((id) =>
+          id['vendorID'] == device.vendorID &&
+          id['productID'] == device.productID);
+
+      if (isKnownScale) {
+        _debugPrint('WeightScaleManager: Device ${device.deviceName} is a known scale. Proceeding with check...');
+        // Только если VID/PID совпали, выполняем проверку подключения
+        if (await _checkDevice(device)) {
+          _debugPrint('WeightScaleManager: Device check successful for ${device.deviceName}. Adding to valid list.');
+          validDevices.add(device);
+        } else {
+          _debugPrint('WeightScaleManager: Device check failed for ${device.deviceName}.');
+        }
+      } else {
+         _debugPrint('WeightScaleManager: Skipping device ${device.deviceName} - not a known scale.');
       }
     }
+    _debugPrint('WeightScaleManager: Filtering complete. Found ${validDevices.length} valid scale devices.');
     return validDevices;
   }
 
@@ -133,28 +163,66 @@ class WeightScaleManager {
 
   // Check if the device sends data within 500 ms
   Future<bool> _checkDevice(WeightScaleDevice device) async {
+     _debugPrint('WeightScaleManager: _checkDevice started for ${device.deviceName}');
     final completer = Completer<bool>();
+    StreamSubscription? subscription; // Объявляем здесь, чтобы был доступен в catch и finally
 
-    // Connect to the device
-    await connect(device);
+    try {
+      // Попытка подключения к устройству
+      await connect(device);
 
-    // Listen for data and complete the future if data is received
-    final subscription = dataStream?.listen((data) {
-      if (!completer.isCompleted) {
-        completer.complete(true);
+      // Проверяем, успешно ли прошло подключение перед подпиской на стрим
+      if (_connectedDevice?.deviceName != device.deviceName) {
+        _debugPrint('WeightScaleManager: _checkDevice connection failed early for ${device.deviceName}');
+        if (!completer.isCompleted) {
+           completer.complete(false);
+        }
+        return completer.future; // Выходим, если подключение не удалось
       }
-    });
 
-    // Complete the future with false if no data is received within 500 ms
-    Future.delayed(const Duration(milliseconds: 500), () async {
-      if (!completer.isCompleted) {
-        completer.complete(false);
-      }
-      await subscription?.cancel();
-      await disconnect();
-    });
+      // Слушаем данные и завершаем future, если данные получены
+      subscription = dataStream?.listen((data) {
+         _debugPrint('WeightScaleManager: _checkDevice received data for ${device.deviceName}');
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      }, onError: (err, stack) { // Обрабатываем ошибку стрима
+         _debugPrint('WeightScaleManager: _checkDevice stream error for ${device.deviceName}: $err');
+         if (!completer.isCompleted) {
+            completer.complete(false);
+         }
+      });
 
-    return completer.future;
+      // Завершаем future с false, если данные не получены в течение 500 мс
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        if (!completer.isCompleted) {
+           _debugPrint('WeightScaleManager: _checkDevice timed out for ${device.deviceName}');
+          completer.complete(false);
+        }
+        // Отписка происходит в finally
+      });
+
+    } catch (e, stackTrace) {
+       _debugPrint('WeightScaleManager: _checkDevice connection error during connect() for ${device.deviceName}: $e');
+       _handleError(e, stackTrace, '_checkDevice/connect');
+       if (!completer.isCompleted) {
+          completer.complete(false);
+       }
+    } finally {
+       // Гарантированная отписка и отключение
+       await subscription?.cancel();
+       // Отключаемся ТОЛЬКО если это устройство все еще числится подключенным
+       if (_connectedDevice?.deviceName == device.deviceName) {
+          _debugPrint('WeightScaleManager: _checkDevice disconnecting from ${device.deviceName} in finally block.');
+          await disconnect();
+       } else {
+          _debugPrint('WeightScaleManager: _checkDevice - skipping disconnect in finally as device ${device.deviceName} is not the currently connected one ($_connectedDevice).');
+       }
+    }
+
+    final result = await completer.future;
+    _debugPrint('WeightScaleManager: _checkDevice finished for ${device.deviceName}. Result: $result');
+    return result;
   }
 
   // Handle errors
