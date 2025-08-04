@@ -1,159 +1,279 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:weight_scale/core/result.dart';
+import 'package:weight_scale/core/config.dart';
+import 'package:weight_scale/core/logger.dart';
+import 'package:weight_scale/repositories/device_repository.dart';
+import 'package:weight_scale/data/data_stream.dart';
 import 'package:weight_scale/protocol.dart';
 import 'package:weight_scale/weight_scale_device.dart';
 
-class WeightScaleManager {
+/// Main manager class for weight scale operations
+/// Implements singleton pattern to prevent multiple USB connections
+class WeightScaleManager
+    implements WeightScaleDeviceRepository, WeightScaleDataStream {
   static const MethodChannel _methodChannel =
       MethodChannel('com.kicknext.weight_scale');
   static const EventChannel _eventChannel =
       EventChannel('com.kicknext.weight_scale/events');
 
-  static final WeightScaleManager _instance = WeightScaleManager._internal();
-  factory WeightScaleManager() => _instance;
-  WeightScaleManager._internal();
-
-  // Список известных VID/PID весов
-  // Список известных VID/PID весов (Используем десятичные строки!)
-  static const List<Map<String, String>> _knownScaleIDs = [
-    {
-      'vendorID': '6790', // Aclas VID (Decimal String from 0x1a86)
-      'productID': '29987', // Aclas PID (Decimal String from ACTUAL LOGS 0x551f - CORRECTED YET AGAIN)
-      'name': 'Aclas',
-    },
-    // Возвращаем запись для весов "No Name"
-    {
-      'vendorID': '1027', // No Name Scale VID (Decimal String from 0x0403)
-      'productID': '24577', // No Name Scale PID (Decimal String from 0x6001)
-      'name': 'No Name Scale', // Или другое подходящее имя
-    },
-    // Сюда можно добавить другие модели весов при необходимости
-  ];
+  static WeightScaleManager? _instance;
+  final WeightScaleConfig _config;
+  final WeightScaleLogger _logger;
 
   WeightScaleDevice? _connectedDevice;
   Stream<ScaleData>? _dataStream;
   StreamSubscription<ScaleData>? _dataSubscription;
+  void Function(Object error, StackTrace stackTrace)? _errorCallback;
 
-  // Callback for error handling
-  void Function(Object error, StackTrace stackTrace)? onErrorCallback;
+  WeightScaleManager._internal({
+    WeightScaleConfig? config,
+    WeightScaleLogger? logger,
+  })  : _config = config ?? const WeightScaleConfig(),
+        _logger = logger ?? const ConsoleLogger();
 
-  // Get list of connected devices
-  Future<List<WeightScaleDevice>> getDevices() async {
+  /// Get singleton instance with optional configuration
+  factory WeightScaleManager({
+    WeightScaleConfig? config,
+    WeightScaleLogger? logger,
+  }) {
+    return _instance ??= WeightScaleManager._internal(
+      config: config,
+      logger: logger,
+    );
+  }
+
+  /// Reset singleton instance (for testing)
+  static void resetInstance() {
+    _instance?.dispose();
+    _instance = null;
+  }
+
+  @override
+  Future<Result<List<WeightScaleDevice>>> getAvailableDevices() async {
     try {
+      _logger.debug('Getting available devices...');
       final devices = await _methodChannel
           .invokeMethod<Map<dynamic, dynamic>>('getDevices');
-      if (devices == null) return [];
 
-      List<WeightScaleDevice> deviceList = devices.entries.map((entry) {
+      if (devices == null) {
+        _logger.warning('No devices returned from platform channel');
+        return const Success([]);
+      }
+
+      final deviceList = devices.entries.map((entry) {
         final deviceInfo = (entry.value as String).split(':');
-        // Создаем объект устройства
-        final device = WeightScaleDevice(
+        return WeightScaleDevice(
           deviceName: entry.key as String,
-          vendorID: deviceInfo[0], // Сохраняем как строку
-          productID: deviceInfo[1], // Сохраняем как строку
+          vendorID: deviceInfo[0],
+          productID: deviceInfo[1],
         );
-        // Логируем данные созданного устройства
-        _debugPrint(
-            'WeightScaleManager: Discovered device - Name: ${device.deviceName}, Raw VID: ${device.vendorID}, Raw PID: ${device.productID}');
-        // Возвращаем устройство
-        return device;
       }).toList();
 
-      return await _filterValidDevices(deviceList);
+      _logger.debug('Found ${deviceList.length} USB devices');
+      return Success(await _filterValidDevices(deviceList));
     } on PlatformException catch (e, stackTrace) {
-      _handleError(e, stackTrace, 'getDevices');
-      return [];
+      _logger.error('Failed to get devices', e, stackTrace);
+      return Failure('Failed to get devices: ${e.message}',
+          error: e, stackTrace: stackTrace);
+    } catch (e, stackTrace) {
+      _logger.error('Unexpected error getting devices', e, stackTrace);
+      return Failure('Unexpected error: ${e.toString()}',
+          error: e, stackTrace: stackTrace);
     }
   }
 
   Future<List<WeightScaleDevice>> _filterValidDevices(
       List<WeightScaleDevice> devices) async {
-    List<WeightScaleDevice> validDevices = [];
-    _debugPrint(
-        'WeightScaleManager: Starting device filtering. Total devices found: ${devices.length}');
+    final validDevices = <WeightScaleDevice>[];
+    _logger
+        .debug('Filtering ${devices.length} devices against known scale IDs');
 
-    for (var device in devices) {
-      _debugPrint(
-          'WeightScaleManager: Checking device: ${device.deviceName} (VID: ${device.vendorID}, PID: ${device.productID})');
+    for (final device in devices) {
+      _logger.debug(
+          'Checking device: ${device.deviceName} (VID: ${device.vendorID}, PID: ${device.productID})');
 
-      // Проверяем, есть ли VID/PID устройства в нашем списке известных весов
-      bool isKnownScale = _knownScaleIDs.any((id) =>
-          id['vendorID'] == device.vendorID &&
-          id['productID'] == device.productID);
+      final isKnownScale =
+          _config.knownScaleDevices.any((id) => id.matches(device));
 
       if (isKnownScale) {
-        _debugPrint(
-            'WeightScaleManager: Device ${device.deviceName} is a known scale. Proceeding with check...');
-        // Только если VID/PID совпали, выполняем проверку подключения
-        if (await _checkDevice(device)) {
-          _debugPrint(
-              'WeightScaleManager: Device check successful for ${device.deviceName}. Adding to valid list.');
+        _logger.debug(
+            'Device ${device.deviceName} is a known scale, validating...');
+        final validationResult = await validateDevice(device);
+
+        if (validationResult.isSuccess && validationResult.dataOrNull == true) {
+          _logger.info('Device ${device.deviceName} validated successfully');
           validDevices.add(device);
         } else {
-          _debugPrint(
-              'WeightScaleManager: Device check failed for ${device.deviceName}.');
+          _logger.warning(
+              'Device ${device.deviceName} validation failed: ${validationResult.failureOrNull?.message}');
         }
       } else {
-        _debugPrint(
-            'WeightScaleManager: Skipping device ${device.deviceName} - not a known scale.');
+        _logger
+            .debug('Skipping device ${device.deviceName} - not a known scale');
       }
     }
-    _debugPrint(
-        'WeightScaleManager: Filtering complete. Found ${validDevices.length} valid scale devices.');
+
+    _logger.info('Found ${validDevices.length} valid scale devices');
     return validDevices;
   }
 
-  // Connect to a device
-  Future<void> connect(WeightScaleDevice device) async {
+  @override
+  Future<Result<void>> connect(WeightScaleDevice device) async {
     try {
+      _logger.debug('Connecting to device: ${device.deviceName}');
+
       await _methodChannel.invokeMethod('connect', {
         "deviceName": device.deviceName,
         "vendorID": device.vendorID,
         "productID": device.productID,
       });
+
       device.isConnected = true;
       _connectedDevice = device;
+      initialize();
 
-      // Initialize data stream
-      _initializeDataStream();
+      _logger.info('Successfully connected to ${device.deviceName}');
+      return const Success(null);
     } on PlatformException catch (e, stackTrace) {
-      _handleError(e, stackTrace, 'connect');
+      _logger.error('Failed to connect to ${device.deviceName}', e, stackTrace);
       device.isConnected = false;
+      return Failure('Connection failed: ${e.message}',
+          error: e, stackTrace: stackTrace);
     }
   }
 
-  // Disconnect from the device
-  Future<void> disconnect() async {
+  @override
+  Future<Result<void>> disconnect() async {
     try {
+      _logger.debug('Disconnecting from current device');
+
       await _methodChannel.invokeMethod('disconnect');
       _connectedDevice?.isConnected = false;
       _connectedDevice = null;
 
-      // Cancel data stream subscription and clear data stream
-      await _dataSubscription?.cancel();
-      _dataSubscription = null;
-      _dataStream = null;
+      await dispose();
+
+      _logger.info('Successfully disconnected');
+      return const Success(null);
     } on PlatformException catch (e, stackTrace) {
-      _handleError(e, stackTrace, 'disconnect');
+      _logger.error('Failed to disconnect', e, stackTrace);
+      return Failure('Disconnect failed: ${e.message}',
+          error: e, stackTrace: stackTrace);
     }
   }
 
-  // Initialize data stream
-  void _initializeDataStream() {
+  @override
+  Future<Result<bool>> validateDevice(WeightScaleDevice device) async {
+    _logger.debug('Validating device: ${device.deviceName}');
+
+    try {
+      final connectResult = await connect(device);
+      if (connectResult.isFailure) {
+        return Failure(
+            'Connection failed during validation: ${connectResult.failureOrNull?.message}');
+      }
+
+      if (_connectedDevice?.deviceName != device.deviceName) {
+        return const Failure('Device connection state inconsistent');
+      }
+
+      // Wait for first data packet with timeout
+      try {
+        await dataStream!.first.timeout(_config.deviceCheckTimeout);
+        _logger.debug('Device ${device.deviceName} sent data successfully');
+        return const Success(true);
+      } on TimeoutException catch (e, stackTrace) {
+        _logger.debug('Device ${device.deviceName} validation timeout: $e');
+        return Failure(
+            'Device validation timeout: No data received within ${_config.deviceCheckTimeout}',
+            error: e,
+            stackTrace: stackTrace);
+      } on PlatformException catch (e, stackTrace) {
+        if (e.code == 'CONNECTION_LOST') {
+          // Connection lost during validation is expected behavior
+          _logger.debug(
+              'Device ${device.deviceName} validation completed with connection lost (expected)');
+          return const Success(true);
+        } else {
+          _logger.debug(
+              'Device ${device.deviceName} validation failed with platform error: $e');
+          return Failure('Platform validation error: ${e.message}',
+              error: e, stackTrace: stackTrace);
+        }
+      }
+    } catch (e, stackTrace) {
+      _logger.debug('Device ${device.deviceName} validation failed: $e');
+      return Failure('Validation failed: ${e.toString()}',
+          error: e, stackTrace: stackTrace);
+    } finally {
+      // Always disconnect after validation
+      if (_connectedDevice?.deviceName == device.deviceName) {
+        final disconnectResult = await disconnect();
+        if (disconnectResult.isFailure) {
+          _logger.debug(
+              'Failed to disconnect after validation, but continuing...');
+        }
+      }
+    }
+  }
+
+  @override
+  void initialize() {
+    _logger.debug('Initializing data stream');
+
     _dataStream = _eventChannel
         .receiveBroadcastStream()
         .map(_parseEvent)
         .where((event) => event != null)
-        .cast<ScaleData>();
+        .cast<ScaleData>()
+        .handleError((error, stackTrace) {
+      _logger.error('Data stream error', error, stackTrace);
+      _errorCallback?.call(error, stackTrace);
 
-    // Subscribe to the data stream
-    _dataSubscription = _dataStream!.listen((data) {
-      // Handle incoming data
-      _debugPrint('WeightScaleManager: Received data: $data');
-    }, onError: (error, stackTrace) {
-      _handleError(error, stackTrace, '_initializeDataStream');
+      // Handle CONNECTION_LOST specifically without crashing
+      if (error is PlatformException && error.code == 'CONNECTION_LOST') {
+        _logger.debug('Connection lost - cleaning up stream');
+        _dataSubscription?.cancel();
+        _dataSubscription = null;
+        _dataStream = null;
+        _connectedDevice?.isConnected = false;
+        _connectedDevice = null;
+      }
     });
+
+    _dataSubscription = _dataStream!.listen(
+      (data) => _logger.debug('Received scale data: $data'),
+      onError: (error, stackTrace) {
+        _logger.error('Data stream error', error, stackTrace);
+        _errorCallback?.call(error, stackTrace);
+
+        // Handle CONNECTION_LOST specifically without crashing
+        if (error is PlatformException && error.code == 'CONNECTION_LOST') {
+          _logger.debug('Connection lost in subscription - cleaning up');
+          _dataSubscription?.cancel();
+          _dataSubscription = null;
+          _dataStream = null;
+          _connectedDevice?.isConnected = false;
+          _connectedDevice = null;
+        }
+      },
+      cancelOnError: false, // Don't cancel on error, handle gracefully
+    );
+  }
+
+  @override
+  Future<void> dispose() async {
+    _logger.debug('Disposing resources');
+    await _dataSubscription?.cancel();
+    _dataSubscription = null;
+    _dataStream = null;
+  }
+
+  @override
+  void setErrorCallback(
+      void Function(Object error, StackTrace stackTrace)? callback) {
+    _errorCallback = callback;
   }
 
   ScaleData? _parseEvent(dynamic event) {
@@ -161,62 +281,38 @@ class WeightScaleManager {
       try {
         return ScaleProtocol.parseData(event);
       } catch (e, stackTrace) {
-        _handleError(e, stackTrace, '_parseEvent');
+        _logger.error('Failed to parse scale data', e, stackTrace);
+        _errorCallback?.call(e, stackTrace);
         return null;
       }
     } else {
-      _handleError(const FormatException("Received unknown data format"),
-          StackTrace.current, '_parseEvent');
+      const error = FormatException("Received unknown data format");
+      _logger.error('Unknown data format received', error);
+      _errorCallback?.call(error, StackTrace.current);
       return null;
     }
   }
 
-  // Get a stream of data from the device
+  @override
   Stream<ScaleData>? get dataStream => _dataStream;
 
-  // Get the connected device
+  @override
   WeightScaleDevice? get connectedDevice => _connectedDevice;
 
-  // Check if a device is connected
+  @override
   bool get isConnected => _connectedDevice != null;
 
-  // Check if the device sends data within 500 ms
-  Future<bool> _checkDevice(WeightScaleDevice device) async {
-    _debugPrint('WeightScaleManager: _checkDevice started for ${device.deviceName}');
-    bool checkSucceeded = false;
-    try {
-      await connect(device);
-      if (_connectedDevice?.deviceName != device.deviceName) {
-        _debugPrint('WeightScaleManager: _checkDevice connection failed early for ${device.deviceName}');
-        return false;
-      }
-      // Ожидаем первый элемент потока данных с таймаутом 500 мс
-      await dataStream!.first.timeout(const Duration(milliseconds: 500));
-      _debugPrint('WeightScaleManager: _checkDevice received data for ${device.deviceName}');
-      checkSucceeded = true;
-      return true;
-    } catch (e, stackTrace) {
-      _debugPrint('WeightScaleManager: _checkDevice error for ${device.deviceName}: $e');
-      _handleError(e, stackTrace, '_checkDevice');
-      return false;
-    } finally {
-      if (!checkSucceeded && _connectedDevice?.deviceName == device.deviceName) {
-        _debugPrint('WeightScaleManager: _checkDevice disconnecting from ${device.deviceName} due to failed check.');
-        await disconnect();
-      }
-    }
+  // Legacy API compatibility
+  Future<List<WeightScaleDevice>> getDevices() async {
+    final result = await getAvailableDevices();
+    return result.dataOrNull ?? [];
   }
 
-  // Handle errors
-  void _handleError(Object error, StackTrace stackTrace, String context) {
-    _debugPrint(
-        'WeightScaleManager: Error in $context: $error\nStack trace: $stackTrace');
-    onErrorCallback?.call(error, stackTrace);
-  }
-
-  void _debugPrint(String message) {
-    if (kDebugMode) {
-      debugPrint(message);
-    }
+  // Legacy API compatibility
+  void Function(Object error, StackTrace stackTrace)? get onErrorCallback =>
+      _errorCallback;
+  set onErrorCallback(
+      void Function(Object error, StackTrace stackTrace)? callback) {
+    setErrorCallback(callback);
   }
 }
