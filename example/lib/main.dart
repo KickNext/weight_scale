@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:weight_scale/protocol.dart';
 import 'package:weight_scale/weight_scale_manager.dart';
 import 'package:weight_scale/weight_scale_device.dart';
@@ -29,10 +31,35 @@ class WeightScaleAppState extends State<WeightScaleApp> {
       _showError('Connection error: ${error.toString()}');
     });
 
-    _getDevices();
+    // Only try to get devices on Android
+    if (_isAndroid) {
+      _getDevices();
+    }
+  }
+
+  bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+
+  String get _platformMessage {
+    if (kIsWeb) {
+      return 'Web platform is not supported. This plugin requires Android with USB host support.';
+    } else if (Platform.isAndroid) {
+      return 'Android platform detected. USB scales supported.';
+    } else if (Platform.isIOS) {
+      return 'iOS platform is not supported. iOS does not support USB host mode without MFi accessories.';
+    } else if (Platform.isWindows) {
+      return 'Windows platform is not supported in this version.';
+    } else if (Platform.isMacOS) {
+      return 'macOS platform is not supported in this version.';
+    } else if (Platform.isLinux) {
+      return 'Linux platform is not supported in this version.';
+    } else {
+      return 'Unknown platform. Only Android is supported.';
+    }
   }
 
   Future<void> _getDevices() async {
+    if (!_isAndroid) return;
+
     final result = await _weightScaleManager.getAvailableDevices();
     result.fold(
       (devices) {
@@ -115,75 +142,116 @@ class WeightScaleAppState extends State<WeightScaleApp> {
         appBar: AppBar(
           title: const Text('Weight Scale Example'),
           actions: [
-            ElevatedButton(
-                onPressed: _getDevices, child: const Text('Find devices')),
+            if (_isAndroid)
+              ElevatedButton(
+                  onPressed: _getDevices, child: const Text('Find devices')),
           ],
         ),
         body: Center(
-          child: Row(
-            children: [
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 3,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                      border: Border(right: BorderSide(color: Colors.black))),
-                  child: _devices.isEmpty
-                      ? const Center(child: Text('No devices found'))
-                      : ListView(
-                          children: _devices
-                              .map((device) => ListTile(
-                                    title: Text(device.deviceName),
-                                    subtitle: Text(
-                                        '${device.productID}:${device.vendorID}'),
-                                    trailing: _weightScaleManager
-                                                    .connectedDevice
-                                                    ?.deviceName ==
-                                                device.deviceName &&
-                                            (_weightScaleManager.connectedDevice
-                                                    ?.isConnected ??
-                                                false)
-                                        ? const Icon(Icons.check)
-                                        : null,
-                                    onTap: () => _weightScaleManager
-                                                    .connectedDevice
-                                                    ?.deviceName ==
-                                                device.deviceName &&
-                                            (_weightScaleManager.connectedDevice
-                                                    ?.isConnected ??
-                                                false)
-                                        ? _disconnect()
-                                        : _connect(device),
-                                  ))
-                              .toList(),
-                        ),
-                ),
-              ),
-              Expanded(
-                child: _data == null
-                    ? const Center(child: Text('No data received'))
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Status: ${_data?.status.toString().split('.').last}',
-                            style: const TextStyle(fontSize: 36),
-                          ),
-                          Text(
-                            '${double.parse(_data?.weight ?? '0').toString()} ${_data?.weightUnits}',
-                            style: const TextStyle(
-                              fontSize: 100,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Tare: ${_data?.status2.toString().split('.').last}',
-                            style: const TextStyle(fontSize: 36),
-                          ),
-                        ],
+          child: !_isAndroid
+              ? Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 64,
+                        color: Colors.orange,
                       ),
-              ),
-            ],
-          ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Platform Not Supported',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _platformMessage,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'This plugin requires Android with USB host support to communicate with commercial weight scales.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Row(
+                  children: [
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width / 3,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                            border:
+                                Border(right: BorderSide(color: Colors.black))),
+                        child: _devices.isEmpty
+                            ? const Center(child: Text('No devices found'))
+                            : ListView(
+                                children: _devices
+                                    .map((device) => ListTile(
+                                          title: Text(device.deviceName),
+                                          subtitle: Text(
+                                              '${device.productID}:${device.vendorID}'),
+                                          trailing: _weightScaleManager
+                                                          .connectedDevice
+                                                          ?.deviceName ==
+                                                      device.deviceName &&
+                                                  (_weightScaleManager
+                                                          .connectedDevice
+                                                          ?.isConnected ??
+                                                      false)
+                                              ? const Icon(Icons.check)
+                                              : null,
+                                          onTap: () => _weightScaleManager
+                                                          .connectedDevice
+                                                          ?.deviceName ==
+                                                      device.deviceName &&
+                                                  (_weightScaleManager
+                                                          .connectedDevice
+                                                          ?.isConnected ??
+                                                      false)
+                                              ? _disconnect()
+                                              : _connect(device),
+                                        ))
+                                    .toList(),
+                              ),
+                      ),
+                    ),
+                    Expanded(
+                      child: _data == null
+                          ? const Center(child: Text('No data received'))
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Status: ${_data?.status.toString().split('.').last}',
+                                  style: const TextStyle(fontSize: 36),
+                                ),
+                                Text(
+                                  '${double.parse(_data?.weight ?? '0').toString()} ${_data?.weightUnits}',
+                                  style: const TextStyle(
+                                    fontSize: 100,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  'Tare: ${_data?.status2.toString().split('.').last}',
+                                  style: const TextStyle(fontSize: 36),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

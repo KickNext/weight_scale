@@ -1,0 +1,183 @@
+name: 🚀 Release & Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 1.0.1)"
+        required: true
+        type: string
+
+env:
+  FLUTTER_VERSION: "3.27.0"
+
+jobs:
+  # 🏷️ Create Release
+  create_release:
+    name: 🏷️ Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      tag_name: ${{ steps.get_tag.outputs.tag }}
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🏷️ Get tag name
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📝 Generate changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            # Extract version section from CHANGELOG.md
+            VERSION=$(echo "${{ steps.get_tag.outputs.tag }}" | sed 's/^v//')
+            awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md > release_notes.md
+            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+            cat release_notes.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGELOG=No changelog available" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          release_name: Release ${{ steps.get_tag.outputs.tag }}
+          body: |
+            ## 🎉 Weight Scale Plugin ${{ steps.get_tag.outputs.tag }}
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ### 📦 Installation
+            ```yaml
+            dependencies:
+              weight_scale: ^${{ github.event.inputs.version || steps.get_tag.outputs.tag }}
+            ```
+
+            ### 🔗 Links
+            - [pub.dev package](https://pub.dev/packages/weight_scale)
+            - [Documentation](https://github.com/nikitiser/weight_scale#readme)
+            - [Example app](https://github.com/nikitiser/weight_scale/tree/main/example)
+          draft: false
+          prerelease: false
+
+  # 🏗️ Build Release Assets
+  build_assets:
+    name: 🏗️ Build Release Assets
+    runs-on: ubuntu-latest
+    needs: create_release
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: 📦 Get dependencies
+        run: flutter pub get
+
+      - name: 📦 Get example dependencies
+        working-directory: example
+        run: flutter pub get
+
+      - name: 🏗️ Build example APK
+        working-directory: example
+        run: flutter build apk --release
+
+      - name: 📤 Upload APK to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: example/build/app/outputs/flutter-apk/app-release.apk
+          asset_name: weight_scale_example_${{ needs.create_release.outputs.tag_name }}.apk
+          asset_content_type: application/vnd.android.package-archive
+
+  # 📦 Publish to pub.dev
+  publish:
+    name: 📦 Publish to pub.dev
+    runs-on: ubuntu-latest
+    needs: [create_release, build_assets]
+    environment: production
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: 📦 Get dependencies
+        run: flutter pub get
+
+      - name: 🧪 Run tests before publish
+        run: flutter test
+
+      - name: 📋 Validate package
+        run: dart pub publish --dry-run
+
+      - name: 🚀 Publish to pub.dev
+        env:
+          PUB_TOKEN: ${{ secrets.PUB_CREDENTIALS }}
+        run: |
+          if [ -n "$PUB_TOKEN" ]; then
+            echo "$PUB_TOKEN" > ~/.pub-cache/credentials.json
+            dart pub publish --force
+          else
+            echo "PUB_CREDENTIALS not set, skipping publish"
+          fi
+
+  # 📢 Post-Release Actions
+  post_release:
+    name: 📢 Post-Release Actions
+    runs-on: ubuntu-latest
+    needs: [create_release, publish]
+    if: success()
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📊 Update badges
+        run: |
+          echo "🎉 Release ${{ needs.create_release.outputs.tag_name }} published successfully!"
+          echo "📦 Available on pub.dev: https://pub.dev/packages/weight_scale"
+          echo "📱 Example APK available in GitHub Releases"
+
+      - name: 🐦 Tweet about release (optional)
+        if: false # Enable when you have Twitter integration
+        run: |
+          echo "Would tweet: 🎉 Weight Scale Plugin ${{ needs.create_release.outputs.tag_name }} is now available!"

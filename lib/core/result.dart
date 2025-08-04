@@ -31,8 +31,8 @@ extension ResultExtension<T> on Result<T> {
   R fold<R>(
       R Function(T data) onSuccess, R Function(Failure<T> failure) onFailure) {
     return switch (this) {
-      Success<T> success => onSuccess(success.data),
-      Failure<T> failure => onFailure(failure),
+      final Success<T> success => onSuccess(success.data),
+      final Failure<T> failure => onFailure(failure),
     };
   }
 }

@@ -1,0 +1,78 @@
+name: ❓ Question
+description: Ask a question about using the weight scale plugin
+title: "[QUESTION] "
+labels: ["question", "needs-answer"]
+assignees:
+  - nikitiser
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got a question? We're here to help! ❓
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 📂 Question Category
+      description: What type of question is this?
+      options:
+        - Setup/Installation
+        - Device Connection
+        - Data Processing
+        - Protocol Implementation
+        - Example Usage
+        - Performance/Optimization
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: ❓ Your Question
+      description: Please describe your question in detail
+      placeholder: I'm trying to... but I'm getting... How can I...?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 🔧 Context
+      description: |
+        Provide context about your setup:
+      value: |
+        - **Flutter version**: 
+        - **Plugin version**: 
+        - **Scale model**: 
+        - **What you're trying to achieve**: 
+        - **What you've tried so far**:
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: 💻 Code Sample
+      description: If relevant, please provide a code sample that demonstrates your question
+      render: dart
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📎 Additional Information
+      description: Any other information that might be relevant to your question
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Checklist
+      options:
+        - label: I have read the README and documentation
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true
+        - label: I have provided enough context for others to understand my question
+          required: true

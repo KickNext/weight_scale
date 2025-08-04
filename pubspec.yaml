@@ -1,11 +1,20 @@
 name: weight_scale
-description: "Flutter plugin for Android to interface with commercial scales via RS232 using the AUTO COMMUNICATE PROTOCOL."
-version: 0.3.1+2025040801
-# homepage:
+description: Flutter plugin for interfacing commercial weight scales via RS232 using AUTO COMMUNICATE PROTOCOL. Supports real-time weight data streaming and device management.
+version: 1.0.0
+homepage: https://github.com/nikitiser/weight_scale
+repository: https://github.com/nikitiser/weight_scale
+issue_tracker: https://github.com/nikitiser/weight_scale/issues
+documentation: https://github.com/nikitiser/weight_scale#readme
+topics:
+  - hardware
+  - serial
+  - weight-scale
+  - rs232
+  - usb
 
 environment:
-  sdk: '>=3.3.2 <4.0.0'
-  flutter: '>=3.3.0'
+  sdk: ">=3.3.2 <4.0.0"
+  flutter: ">=3.3.0"
 
 dependencies:
   flutter:
@@ -14,8 +23,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-  mockito: 
+  flutter_lints: ^5.0.0
+  mockito: ^5.4.4
+  integration_test:
+    sdk: flutter
+  build_runner: ^2.4.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

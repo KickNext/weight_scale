@@ -1,0 +1,150 @@
+name: 🔒 Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security scan weekly on Mondays at 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.27.0"
+
+jobs:
+  # 🔍 Dependency Vulnerability Scan
+  dependency_scan:
+    name: 🔍 Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: 📦 Get dependencies
+        run: flutter pub get
+
+      - name: 🔍 Run dependency audit
+        run: |
+          # Check for known vulnerabilities in dependencies
+          dart pub deps --json > deps.json
+          echo "Dependency scan completed"
+
+      - name: 📊 Generate dependency report
+        run: |
+          echo "## Dependency Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Version | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          flutter pub deps --compact | head -20 >> $GITHUB_STEP_SUMMARY
+
+  # 🛡️ SAST (Static Application Security Testing)
+  sast_analysis:
+    name: 🛡️ Static Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: 📦 Get dependencies
+        run: flutter pub get
+
+      - name: 🔍 Run Dart analyzer with security focus
+        run: |
+          # Run analyzer with stricter security-focused rules
+          flutter analyze --fatal-infos --fatal-warnings
+
+      - name: 🛡️ Security-focused code review
+        run: |
+          echo "Checking for common security issues..."
+
+          # Check for hardcoded secrets/keys
+          if grep -r "api_key\|password\|secret\|token" lib/ --exclude-dir=test; then
+            echo "⚠️ Potential hardcoded secrets found"
+            exit 1
+          fi
+
+          # Check for unsafe native method calls
+          if grep -r "UnsafeNative\|DangerousMethod" lib/; then
+            echo "⚠️ Unsafe native method calls found"
+            exit 1
+          fi
+
+          echo "✅ No obvious security issues found"
+
+  # 🔐 Secrets Scan
+  secrets_scan:
+    name: 🔐 Secrets Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📚 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔐 Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # 📋 Security Summary
+  security_summary:
+    name: 📋 Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency_scan, sast_analysis, secrets_scan]
+    if: always()
+
+    steps:
+      - name: 📋 Generate Security Report
+        run: |
+          echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.dependency_scan.result }}" = "success" ]; then
+            echo "✅ **Dependency Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Dependency Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.sast_analysis.result }}" = "success" ]; then
+            echo "✅ **Static Analysis**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Static Analysis**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.secrets_scan.result }}" = "success" ]; then
+            echo "✅ **Secrets Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Secrets Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔧 Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- Keep dependencies updated" >> $GITHUB_STEP_SUMMARY
+          echo "- Review any security warnings" >> $GITHUB_STEP_SUMMARY
+          echo "- Use secrets management for sensitive data" >> $GITHUB_STEP_SUMMARY

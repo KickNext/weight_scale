@@ -1,0 +1,91 @@
+name: 🐛 Bug Report
+description: Create a report to help us improve the weight scale plugin
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees:
+  - nikitiser
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! 🐛
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 📝 Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what happened!
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Connect scale device...
+        2. Call method...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: ✅ Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: ❌ Actual Behavior
+      description: A clear and concise description of what actually happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🔧 Environment
+      description: |
+        Please provide your environment details:
+      value: |
+        - **Flutter version**: 
+        - **Dart version**: 
+        - **Plugin version**: 
+        - **Android version**: 
+        - **Device model**: 
+        - **Scale model**:
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📋 Logs
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📎 Additional Context
+      description: Add any other context about the problem here (screenshots, etc.)
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Checklist
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't been reported before
+          required: true
+        - label: I have provided all the required information above
+          required: true
+        - label: I am using the latest version of the plugin
+          required: true

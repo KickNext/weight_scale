@@ -1,0 +1,110 @@
+name: 📱 Device Support Request
+description: Request support for a new scale model or device
+title: "[DEVICE] "
+labels: ["device-support", "needs-investigation"]
+assignees:
+  - nikitiser
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us add support for your scale device! 📱
+
+  - type: input
+    id: device_name
+    attributes:
+      label: 🏷️ Device Name/Model
+      description: What is the exact model name of your scale?
+      placeholder: e.g., "Aclas PS1-15", "Mettler Toledo X-Series"
+    validations:
+      required: true
+
+  - type: input
+    id: manufacturer
+    attributes:
+      label: 🏭 Manufacturer
+      description: Who makes this scale?
+      placeholder: e.g., "Aclas", "Mettler Toledo", "Ohaus"
+    validations:
+      required: true
+
+  - type: textarea
+    id: device_info
+    attributes:
+      label: 🔌 USB Device Information
+      description: |
+        Please run the example app and provide the USB device information, or use `lsusb` on Linux/Android:
+      value: |
+        - **Vendor ID (VID)**: 
+        - **Product ID (PID)**: 
+        - **USB Device Name**: 
+        - **Connection Type**: USB-Serial / USB-HID / Other
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: protocol_info
+    attributes:
+      label: 📡 Protocol Information
+      description: |
+        What communication protocol does your scale use?
+      value: |
+        - **Protocol**: RS232 / RS485 / Custom
+        - **Baud Rate**: 9600 / 19200 / Other
+        - **Data Format**: 
+        - **Frame Length**: 
+        - **Documentation Available**: Yes/No
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample_data
+    attributes:
+      label: 📊 Sample Data
+      description: |
+        If possible, provide sample data frames from your scale (hex values)
+      placeholder: |
+        Example:
+        01 02 30 2B 30 30 31 32 33 34 6B 67 XX 03 04 30
+      render: shell
+
+  - type: textarea
+    id: documentation
+    attributes:
+      label: 📚 Documentation
+      description: |
+        Do you have any documentation, manuals, or protocol specifications for this device?
+        Please provide links or attach files.
+
+  - type: dropdown
+    id: testing_available
+    attributes:
+      label: 🧪 Testing Availability
+      description: Do you have access to this device for testing?
+      options:
+        - "Yes - I can test implementations"
+        - "Yes - But limited availability"
+        - "No - Just requesting support"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 📎 Additional Information
+      description: Any other information that might help us add support for this device
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: ✅ Checklist
+      options:
+        - label: I have provided the device model and manufacturer
+          required: true
+        - label: I have provided USB device information (VID/PID)
+          required: true
+        - label: I have searched existing issues for this device
+          required: true
