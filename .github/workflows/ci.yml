@@ -64,12 +64,28 @@ jobs:
       - name: 🧪 Run unit tests
         run: flutter test --coverage --reporter expanded
 
+      - name: 📊 Generate coverage report
+        run: |
+          # Создаем директорию для coverage если её нет
+          mkdir -p coverage
+          # Проверяем, что файл coverage существует
+          if [ -f "coverage/lcov.info" ]; then
+            echo "Coverage file found: coverage/lcov.info"
+            head -10 coverage/lcov.info
+          else
+            echo "Coverage file not found!"
+            ls -la coverage/ || echo "Coverage directory not found"
+            exit 1
+          fi
+
       - name: 📊 Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          file: coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false # Не прерываем CI если codecov недоступен
+          verbose: true
+          flags: unittests
+          name: codecov-umbrella
 
   # 🏗️ Build Example App
   build:
