@@ -276,6 +276,16 @@ Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTIN
 3. Run tests: `flutter test`
 4. Run example: `cd example && flutter run`
 
+### Publishing Releases
+
+For maintainers, see [PUBLISHING_SETUP.md](PUBLISHING_SETUP.md) for automatic release setup.
+
+Quick release process:
+```bash
+# Update version in pubspec.yaml and run:
+./scripts/auto-release.sh
+```
+
 ## Roadmap
 
 - [ ] iOS support via Lightning/USB-C adapters
