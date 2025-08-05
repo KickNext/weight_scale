@@ -74,5 +74,7 @@ class ScaleDeviceIdentifier {
   });
 
   bool matches(WeightScaleDevice device) =>
-      device.vendorID == vendorID && device.productID == productID;
+      device.vendorID == vendorID &&
+      device.productID == productID &&
+      device.deviceName == name;
 }

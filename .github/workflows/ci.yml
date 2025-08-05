@@ -2,13 +2,13 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: "3.27.0"
+  FLUTTER_VERSION: "3.32.8"
 
 jobs:
   # 🔍 Static Analysis & Formatting
@@ -65,12 +65,12 @@ jobs:
         run: flutter test --coverage --reporter expanded
 
       - name: 📊 Upload coverage to Codecov
-        if: env.CODECOV_TOKEN
         uses: codecov/codecov-action@v5
         with:
-          file: coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # 🏗️ Build Example App
   build:

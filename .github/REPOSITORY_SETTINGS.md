@@ -1,42 +1,33 @@
 # Repository Settings
+
 # This file contains recommended settings for the GitHub repository
 
 # Branch Protection Rules
+
 # Apply these manually in GitHub Settings > Branches
 
 main_branch_protection:
-  required_status_checks:
-    strict: true
-    contexts:
-      - "📊 Static Analysis"
-      - "🧪 Unit Tests"
-      - "🏗️ Build Example"
-      - "✅ CI Success"
-  enforce_admins: false
-  required_pull_request_reviews:
-    dismiss_stale_reviews: true
-    require_code_owner_reviews: true
-    required_approving_review_count: 1
-  restrictions: null
-  allow_force_pushes: false
-  allow_deletions: false
+required_status_checks:
+strict: true
+contexts: - "📊 Static Analysis" - "🧪 Unit Tests" - "🏗️ Build Example" - "✅ CI Success"
+enforce_admins: false
+required_pull_request_reviews:
+dismiss_stale_reviews: true
+require_code_owner_reviews: true
+required_approving_review_count: 1
+restrictions: null
+allow_force_pushes: false
+allow_deletions: false
 
 # Repository Settings
+
 repository_settings:
-  # General
-  description: "Flutter plugin for commercial weight scales via RS232 AUTO COMMUNICATE PROTOCOL"
-  homepage_url: "https://pub.dev/packages/weight_scale"
-  topics:
-    - flutter
-    - dart
-    - weight-scale
-    - rs232
-    - usb-serial
-    - android
-    - commercial-scales
-    - protocol
-    - hardware-integration
-    - iot
+
+# General
+
+description: "Flutter plugin for commercial weight scales via RS232 AUTO COMMUNICATE PROTOCOL"
+homepage_url: "https://pub.dev/packages/weight_scale"
+topics: - flutter - dart - weight-scale - rs232 - usb-serial - android - commercial-scales - protocol - hardware-integration - iot
 
 # Features
 

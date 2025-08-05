@@ -2,16 +2,16 @@ name: 🔒 Security Scan
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   schedule:
     # Run security scan weekly on Mondays at 9 AM UTC
     - cron: "0 9 * * 1"
   workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: "3.27.0"
+  FLUTTER_VERSION: "3.32.8"
 
 jobs:
   # 🔍 Dependency Vulnerability Scan
@@ -104,12 +104,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🔐 Run TruffleHog
+      - name: 🔐 Run TruffleHog (Pull Request)
+        if: github.event_name == 'pull_request'
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: main
-          head: HEAD
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --debug --only-verified
+
+      - name: 🔐 Run TruffleHog (Full Scan)
+        if: github.event_name != 'pull_request'
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
           extra_args: --debug --only-verified
 
   # 📋 Security Summary

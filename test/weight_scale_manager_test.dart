@@ -185,7 +185,7 @@ void main() {
       const identifier = ScaleDeviceIdentifier(
         vendorID: '1234',
         productID: '5678',
-        name: 'Test Scale',
+        name: 'Some Device',
       );
 
       final matchingDevice = WeightScaleDevice(

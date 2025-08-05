@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: "3.27.0"
+  FLUTTER_VERSION: "3.32.8"
 
 jobs:
   # 📊 Code Quality Analysis
