@@ -4,10 +4,8 @@ A Flutter plugin for interfacing with commercial weight scales via RS232 using t
 
 [![pub package](https://img.shields.io/pub/v/weight_scale.svg)](https://pub.dev/packages/weight_scale)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI/CD Pipeline](https://github.com/nikitiser/weight_scale/actions/workflows/ci.yml/badge.svg)](https://github.com/nikitiser/weight_scale/actions/workflows/ci.yml)
+[![CI](https://github.com/nikitiser/weight_scale/actions/workflows/ci.yml/badge.svg)](https://github.com/nikitiser/weight_scale/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/nikitiser/weight_scale/branch/main/graph/badge.svg)](https://codecov.io/gh/nikitiser/weight_scale)
-[![Security Scan](https://github.com/nikitiser/weight_scale/actions/workflows/security.yml/badge.svg)](https://github.com/nikitiser/weight_scale/actions/workflows/security.yml)
-[![Quality Metrics](https://github.com/nikitiser/weight_scale/actions/workflows/quality.yml/badge.svg)](https://github.com/nikitiser/weight_scale/actions/workflows/quality.yml)
 
 ## Features
 

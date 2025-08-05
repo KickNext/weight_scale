@@ -1,103 +1,69 @@
-name: 🚀 Release & Publish
+name: Release
 
 on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release (e.g., 1.0.1)"
-        required: true
-        type: string
 
 env:
   FLUTTER_VERSION: "3.32.8"
 
 jobs:
-  # 🏷️ Create Release
-  create_release:
-    name: 🏷️ Create GitHub Release
+  release:
+    name: Create Release & Publish
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      tag_name: ${{ steps.get_tag.outputs.tag }}
+    timeout-minutes: 20
 
     steps:
-      - name: 📚 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🏷️ Get tag name
-        id: get_tag
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: 📝 Generate changelog
-        id: changelog
-        run: |
-          if [ -f CHANGELOG.md ]; then
-            # Extract version section from CHANGELOG.md
-            VERSION=$(echo "${{ steps.get_tag.outputs.tag }}" | sed 's/^v//')
-            awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md > release_notes.md
-            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-            cat release_notes.md >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          else
-            echo "CHANGELOG=No changelog available" >> $GITHUB_OUTPUT
-          fi
-
-      - name: 🚀 Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
-          release_name: Release ${{ steps.get_tag.outputs.tag }}
-          body: |
-            ## 🎉 Weight Scale Plugin ${{ steps.get_tag.outputs.tag }}
-
-            ${{ steps.changelog.outputs.CHANGELOG }}
-
-            ### 📦 Installation
-            ```yaml
-            dependencies:
-              weight_scale: ^${{ github.event.inputs.version || steps.get_tag.outputs.tag }}
-            ```
-
-            ### 🔗 Links
-            - [pub.dev package](https://pub.dev/packages/weight_scale)
-            - [Documentation](https://github.com/nikitiser/weight_scale#readme)
-            - [Example app](https://github.com/nikitiser/weight_scale/tree/main/example)
-          draft: false
-          prerelease: false
-
-  # 🏗️ Build Release Assets
-  build_assets:
-    name: 🏗️ Build Release Assets
-    runs-on: ubuntu-latest
-    needs: create_release
-
-    steps:
-      - name: 📚 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🐦 Setup Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: "stable"
           cache: true
 
-      - name: ☕ Setup Java
-        uses: actions/setup-java@v4
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Get tag version
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            VERSION="${{ steps.get_version.outputs.version }}"
+            awk "/^## \[$VERSION\]/{flag=1;next}/^## \[/{flag=0}flag" CHANGELOG.md > release_notes.md || echo "Release $VERSION" > release_notes.md
+          else
+            echo "Release ${{ steps.get_version.outputs.version }}" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          tag_name: ${{ github.ref }}
+          release_name: Release v${{ steps.get_version.outputs.version }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+
+      - name: Publish to pub.dev
+        uses: k-paxian/dart-package-publisher@v1.6
+        with:
+          credentialJson: ${{ secrets.CREDENTIAL_JSON }}
+          flutter: true
+          skipTests: true
           distribution: "zulu"
           java-version: "17"
 

@@ -1,53 +1,36 @@
-## 📝 Description
+## Description
 
 <!-- Provide a clear and concise description of your changes -->
 
-## 🔗 Related Issue
+## Related Issue
 
 <!-- Link to the issue this PR addresses -->
 
 Fixes #(issue_number)
 
-## 🧪 Type of Change
+## Type of Change
 
-<!-- Mark the relevant option with an "x" -->
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Documentation update
+- [ ] Maintenance/refactoring
 
-- [ ] 🐛 Bug fix (non-breaking change which fixes an issue)
-- [ ] ✨ New feature (non-breaking change which adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📚 Documentation update
-- [ ] 🔧 Maintenance/refactoring
-- [ ] 🧪 Test improvements
-- [ ] 📱 Device support addition
+## Testing
 
-## 🧪 Testing
+- [ ] Unit tests pass
+- [ ] Code follows project style guidelines
+- [ ] Self-review of the code completed
 
-<!-- Describe the tests you ran and/or added -->
+<!-- If adding device support, please specify device details -->
 
-### Test Environment
+## Checklist
 
-- **Flutter version**:
-- **Device tested on**:
-- **Scale model (if applicable)**:
-
-### Tests Added/Modified
-
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] Manual testing with physical device
-- [ ] Example app testing
-
-### Test Results
-
-<!-- Provide test results or screenshots if applicable -->
-
-## 📱 Device Testing (if applicable)
-
-<!-- If this PR adds device support or fixes device-specific issues -->
-
-- **Device Model**:
-- **VID/PID**:
-- **Protocol**:
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my own code
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
 - **Testing Status**: ✅ Tested / ⏳ Needs testing / ❌ Not tested
 
 ## 📋 Checklist
