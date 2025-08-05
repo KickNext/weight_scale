@@ -3,36 +3,36 @@
 
 set -e
 
-echo "🚀 Weight Scale Plugin Publication Script"
+echo "[*] Weight Scale Plugin Publication Script"
 echo "========================================"
 
-# Check if we're in the right directory
+# Check if we are in the right directory
 if [ ! -f "pubspec.yaml" ]; then
-    echo "❌ Error: Not in plugin root directory"
+    echo "[ERROR] Not in plugin root directory"
     exit 1
 fi
 
-echo "📋 Running pre-publication checks..."
+echo "[*] Running pre-publication checks..."
 
 # 1. Format and analyze
-echo "🎨 Formatting code..."
+echo "[*] Formatting code..."
 dart format .
 
-echo "🔍 Running analyzer..."
+echo "[*] Running analyzer..."
 flutter analyze
 
 # 2. Run tests
-echo "🧪 Running tests..."
+echo "[*] Running tests..."
 flutter test
 
 # 3. Validate package
-echo "📦 Validating package..."
+echo "[*] Validating package..."
 dart pub publish --dry-run
 
 echo ""
-echo "✅ All checks passed! Package is ready for publication."
+echo "[SUCCESS] All checks passed! Package is ready for publication."
 echo ""
-echo "📋 Release Checklist:"
+echo "Release Checklist:"
 echo "   - [ ] Version updated in pubspec.yaml"
 echo "   - [ ] CHANGELOG.md updated with new version"
 echo "   - [ ] All tests passing"
@@ -41,28 +41,28 @@ echo ""
 
 # Check if git is clean
 if ! git diff-index --quiet HEAD --; then
-    echo "⚠️  Warning: You have uncommitted changes"
+    echo "[WARNING] You have uncommitted changes"
     git status --porcelain
     echo ""
 fi
 
-read -p "🤔 Do you want to create a release tag and push? (y/N): " -n 1 -r
+read -p "Do you want to create a release tag and push? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     # Get version from pubspec.yaml
-    VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
+    VERSION=$(grep "^version:" pubspec.yaml | sed "s/version: //" | sed "s/+.*//")
     
-    echo "�️  Creating tag v$VERSION..."
+    echo "[*] Creating tag v$VERSION..."
     git tag "v$VERSION"
     
-    echo "� Pushing tag to GitHub..."
+    echo "[*] Pushing tag to GitHub..."
     git push origin "v$VERSION"
     
-    echo "🎉 Tag created and pushed! GitHub Actions will handle the release."
-    echo "📋 Next steps:"
+    echo "[SUCCESS] Tag created and pushed! GitHub Actions will handle the release."
+    echo "Next steps:"
     echo "   - [ ] Monitor GitHub Actions for release completion"
     echo "   - [ ] Check pub.dev for package publication"
     echo "   - [ ] Verify release notes on GitHub"
 else
-    echo "👍 Publication cancelled. Run this script again when ready."
+    echo "[INFO] Publication cancelled. Run this script again when ready."
 fi
