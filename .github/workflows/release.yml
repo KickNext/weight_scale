@@ -58,9 +58,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to pub.dev
-        uses: k-paxian/dart-package-publisher@v1.6
+        uses: k-paxian/dart-package-publisher@master
         with:
-          credentialJson: ${{ secrets.CREDENTIAL_JSON }}
+          accessToken: ${{ secrets.PUBDEV_OAUTH_ACCESS_TOKEN }}
+          refreshToken: ${{ secrets.PUBDEV_OAUTH_REFRESH_TOKEN }}
           flutter: true
           skipTests: true
           format: false

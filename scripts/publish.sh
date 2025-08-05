@@ -6,7 +6,7 @@ set -e
 echo "[*] Weight Scale Plugin Publication Script"
 echo "========================================"
 
-# Check if we are in the right directory
+# Check if we're in the right directory
 if [ ! -f "pubspec.yaml" ]; then
     echo "[ERROR] Not in plugin root directory"
     exit 1
@@ -50,7 +50,7 @@ read -p "Do you want to create a release tag and push? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     # Get version from pubspec.yaml
-    VERSION=$(grep "^version:" pubspec.yaml | sed "s/version: //" | sed "s/+.*//")
+    VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//')
     
     echo "[*] Creating tag v$VERSION..."
     git tag "v$VERSION"
