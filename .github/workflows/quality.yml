@@ -126,11 +126,9 @@ jobs:
           done
 
       - name: 📤 Upload coverage to Codecov
-        if: env.CODECOV_TOKEN
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          file: coverage/lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
           fail_ci_if_error: false
 
   # ⚡ Performance Benchmarks
